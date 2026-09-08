@@ -1,5 +1,574 @@
-const HTML = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Instagram Username Finder</title><style>*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Arial,sans-serif}main{max-width:720px;margin:auto;padding:24px 16px 60px}header{margin-bottom:18px}small{font-weight:800;letter-spacing:1.7px;color:#6b7280}h1{font-size:30px;margin:6px 0 8px}h2{font-size:18px;margin:0 0 16px}p{color:#6b7280;margin:0}.card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:18px;margin-bottom:13px}label{display:block;font-size:13px;font-weight:750;margin:15px 0 7px}label span{color:#9ca3af;font-weight:500}.chips,.checks{display:flex;gap:8px;flex-wrap:wrap}.chip{border:1px solid #d1d5db;background:#fff;border-radius:11px;padding:10px 17px;font-weight:750}.chip.active{background:#2563eb;color:#fff;border-color:#2563eb}.checks label{margin:0;background:#f3f4f6;padding:9px 11px;border-radius:11px}.checks input{accent-color:#2563eb}input,textarea,select{width:100%;border:1px solid #d1d5db;border-radius:12px;padding:12px 13px;font:inherit;background:#fff}.row{display:grid;grid-template-columns:1fr 105px;gap:10px;align-items:end}.limit{height:46px;background:#f3f4f6;border-radius:12px;padding:7px 11px}.limit small{display:block;color:#6b7280;font-size:10px}.primary,.secondary{width:100%;border:0;border-radius:13px;padding:13px;font:inherit;font-weight:800;margin-top:15px}.primary{background:#2563eb;color:#fff}.secondary{background:#eef2f7;color:#111827}.primary:disabled,.secondary:disabled{opacity:.45}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:13px}.stats div{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:11px 5px;text-align:center}.stats b{display:block;font-size:19px}.stats span{font-size:10px;color:#6b7280}.head{display:flex;justify-content:space-between}.head span{font-size:12px;color:#6b7280}.bar{height:7px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin:11px 0}.bar i{display:block;height:100%;width:0;background:#2563eb}.results{max-height:390px;overflow:auto;border:1px solid #e5e7eb;border-radius:12px}.empty{text-align:center;color:#9ca3af;padding:28px}.result{display:flex;justify-content:space-between;gap:10px;padding:11px 12px;border-bottom:1px solid #eef0f3}.uname{font-weight:800}.detail{font-size:10px;color:#6b7280;margin-top:2px}.status{font-size:11px;font-weight:800;padding:5px 7px;border-radius:999px}.maybe{background:#dcfce7;color:#166534}.unknown{background:#fef3c7;color:#92400e}.used{background:#fee2e2;color:#991b1b}.error,.invalid{background:#e5e7eb;color:#374151}.open{font-size:11px;color:#2563eb;text-decoration:none;margin-left:6px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.notice{font-size:11px;line-height:1.55;color:#6b7280}</style></head><body><main><header><small>CLOUDFLARE WORKER</small><h1>Instagram Username Finder</h1><p>3–5 karakterli kullanıcı adlarını kontrollü şekilde test et.</p></header><section class="card"><h2>Tarama ayarları</h2><label>Uzunluk</label><div class="chips"><button class="chip active" data-l="3">3</button><button class="chip" data-l="4">4</button><button class="chip" data-l="5">5</button></div><label>Karakterler</label><div class="checks"><label><input id="letters" type="checkbox" checked>a–z</label><label><input id="numbers" type="checkbox">0–9</label><label><input id="underscore" type="checkbox">_</label><label><input id="dot" type="checkbox">.</label></div><label>Başlangıç / ön ek <span>(opsiyonel)</span></label><input id="prefix" maxlength="5" placeholder="ör. er"><label>Manuel liste <span>(opsiyonel)</span></label><textarea id="manual" rows="4" placeholder="erol&#10;evr&#10;x7a"></textarea><div class="row"><div><label>İstek aralığı</label><select id="delay"><option value="3000">Yavaş — 3 sn</option><option value="5000" selected>Güvenli — 5 sn</option><option value="10000">Çok yavaş — 10 sn</option></select></div><div class="limit"><small>Maksimum</small><b id="limit">100</b></div></div><button id="start" class="primary">🚀 Taramayı Başlat</button><button id="stop" class="secondary" disabled>Durdur</button></section><section class="stats"><div><b id="scanned">0</b><span>Taranan</span></div><div><b id="maybe">0</b><span>Muhtemelen boş</span></div><div><b id="used">0</b><span>Kullanımda</span></div><div><b id="unknown">0</b><span>Belirsiz</span></div></section><section class="card"><div class="head"><h2>Sonuçlar</h2><span id="progress">Hazır</span></div><div class="bar"><i id="bar"></i></div><div id="results" class="results"><div class="empty">Henüz tarama yapılmadı.</div></div><div class="actions"><button id="copy" class="secondary">📋 Boşları Kopyala</button><button id="csv" class="secondary">⬇️ CSV</button></div></section><div class="notice"><b>Önemli:</b> Instagram'ın herkese açık resmi username-availability API'si olmadığı için sonuçlar kesin kayıt garantisi değildir. “Muhtemelen boş” sonuçları Instagram uygulamasında son kez doğrulayın. Araç CAPTCHA, login veya rate-limit aşma girişimi yapmaz.</div></main><script>
-let len=3,running=false,stop=false,results=[];const $=id=>document.getElementById(id);document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));b.classList.add('active');len=+b.dataset.l;updateLimit()});['letters','numbers','underscore','dot','prefix','manual'].forEach(x=>$(x).addEventListener('input',updateLimit));function chars(){let s='';if($('letters').checked)s+='abcdefghijklmnopqrstuvwxyz';if($('numbers').checked)s+='0123456789';if($('underscore').checked)s+='_';if($('dot').checked)s+='.';return[...new Set(s)].join('')}function combos(c,n,p=''){let a=[];function go(x){if(a.length>=100)return;if(x.length===n){a.push(x);return}for(const k of c)go(x+k)}go(p);return a}function candidates(){let a=$('manual').value.split(/\\s+/).map(x=>x.toLowerCase()).filter(Boolean),p=$('prefix').value.trim().toLowerCase();if(p&&p.length<=len)a.push(...combos(chars(),len,p));else if(!p)a.push(...combos(chars(),len));return[...new Set(a)].filter(x=>x.length===len&&/^[a-z0-9._]+$/i.test(x)&&!x.startsWith('.')&&!x.endsWith('.')&&!x.includes('..')).slice(0,100)}function updateLimit(){$('limit').textContent=candidates().length}function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}function add(r){results.push(r);if($('results').querySelector('.empty'))$('results').innerHTML='';let t={MAYBE_AVAILABLE:'🟢 Muhtemelen boş',USED:'🔴 Kullanımda',UNKNOWN:'🟡 Belirsiz',ERROR:'⚠️ Hata',INVALID:'⚠️ Geçersiz'}[r.status]||r.status;let d=document.createElement('div');d.className='result';d.innerHTML='<div><div class="uname">'+esc(r.username)+'</div><div class="detail">'+esc(r.detail||'')+'</div></div><div><span class="status '+r.status.toLowerCase()+'">'+t+'</span><a class="open" target="_blank" href="https://www.instagram.com/'+encodeURIComponent(r.username)+'/">Aç</a></div>';$('results').prepend(d)}const sleep=m=>new Promise(r=>setTimeout(r,m));async function check(u){let r=await fetch('/api/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u})});return r.json()}async function start(){if(running)return;let list=candidates();if(!list.length)return alert('Aday oluşmadı.');running=true;stop=false;results=[];$('results').innerHTML='';['scanned','maybe','used','unknown'].forEach(x=>$(x).textContent=0);$('start').disabled=true;$('stop').disabled=false;let delay=+$('delay').value;for(let i=0;i<list.length;i++){if(stop)break;$('progress').textContent=(i+1)+'/'+list.length+' • '+list[i];$('bar').style.width=i/list.length*100+'%';try{let r=await check(list[i]);add(r);$('scanned').textContent=+$('scanned').textContent+1;if(r.status==='MAYBE_AVAILABLE')$('maybe').textContent=+$('maybe').textContent+1;else if(r.status==='USED')$('used').textContent=+$('used').textContent+1;else $('unknown').textContent=+$('unknown').textContent+1}catch(e){add({username:list[i],status:'ERROR',detail:'API bağlantı hatası'});$('scanned').textContent=+$('scanned').textContent+1;$('unknown').textContent=+$('unknown').textContent+1}if(i<list.length-1)await sleep(delay)}$('bar').style.width='100%';$('progress').textContent=stop?'Durduruldu':'Tamamlandı';running=false;$('start').disabled=false;$('stop').disabled=true}$('start').onclick=start;$('stop').onclick=()=>stop=true;$('copy').onclick=async()=>{let a=results.filter(x=>x.status==='MAYBE_AVAILABLE').map(x=>x.username);if(!a.length)return alert('Muhtemelen boş sonuç yok.');await navigator.clipboard.writeText(a.join('\\n'));alert(a.length+' kullanıcı adı kopyalandı.')};$('csv').onclick=()=>{if(!results.length)return alert('Sonuç yok.');let s='username,status,detail\\n'+results.map(x=>'"'+x.username+'","'+x.status+'","'+(x.detail||'').replaceAll('"','""')+'"').join('\\n'),b=new Blob(['\\ufeff'+s],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='username-results.csv';a.click()};updateLimit();
+const HTML = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Instagram Username Finder</title><style>*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Arial,sans-serif}main{max-width:720px;margin:auto;padding:24px 16px 60px}header{margin-bottom:18px}small{font-weight:800;letter-spacing:1.7px;color:#6b7280}h1{font-size:30px;margin:6px 0 8px}h2{font-size:18px;margin:0 0 16px}p{color:#6b7280;margin:0}.card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:18px;margin-bottom:13px}label{display:block;font-size:13px;font-weight:750;margin:15px 0 7px}label span{color:#9ca3af;font-weight:500}.chips,.checks{display:flex;gap:8px;flex-wrap:wrap}.chip{border:1px solid #d1d5db;background:#fff;border-radius:11px;padding:10px 17px;font-weight:750}.chip.active{background:#2563eb;color:#fff;border-color:#2563eb}.checks label{margin:0;background:#f3f4f6;padding:9px 11px;border-radius:11px}.checks input{accent-color:#2563eb}input,textarea,select{width:100%;border:1px solid #d1d5db;border-radius:12px;padding:12px 13px;font:inherit;background:#fff}.row{display:grid;grid-template-columns:1fr 105px;gap:10px;align-items:end}.limit{height:46px;background:#f3f4f6;border-radius:12px;padding:7px 11px}.limit small{display:block;color:#6b7280;font-size:10px}.primary,.secondary{width:100%;border:0;border-radius:13px;padding:13px;font:inherit;font-weight:800;margin-top:15px}.primary{background:#2563eb;color:#fff}.secondary{background:#eef2f7;color:#111827}.primary:disabled,.secondary:disabled{opacity:.45}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:13px}.stats div{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:11px 5px;text-align:center}.stats b{display:block;font-size:19px}.stats span{font-size:10px;color:#6b7280}.head{display:flex;justify-content:space-between}.head span{font-size:12px;color:#6b7280}.bar{height:7px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin:11px 0}.bar i{display:block;height:100%;width:0;background:#2563eb}.results{max-height:390px;overflow:auto;border:1px solid #e5e7eb;border-radius:12px}.empty{text-align:center;color:#9ca3af;padding:28px}.result{display:flex;justify-content:space-between;gap:10px;padding:11px 12px;border-bottom:1px solid #eef0f3}.uname{font-weight:800}.detail{font-size:10px;color:#6b7280;margin-top:2px}.status{font-size:11px;font-weight:800;padding:5px 7px;border-radius:999px}.maybe_available{background:#dcfce7;color:#166534}.unknown{background:#fef3c7;color:#92400e}.used{background:#fee2e2;color:#991b1b}.error,.invalid{background:#e5e7eb;color:#374151}.open{font-size:11px;color:#2563eb;text-decoration:none;margin-left:6px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.notice{font-size:11px;line-height:1.55;color:#6b7280}</style></head><body><main><header><small>CLOUDFLARE WORKER</small><h1>Instagram Username Finder</h1><p>3–5 karakterli kullanıcı adlarını kontrollü şekilde test et.</p></header><section class="card"><h2>Tarama ayarları</h2><label>Uzunluk</label><div class="chips"><button class="chip active" data-l="3">3</button><button class="chip" data-l="4">4</button><button class="chip" data-l="5">5</button></div><label>Karakterler</label><div class="checks"><label><input id="letters" type="checkbox" checked>a–z</label><label><input id="numbers" type="checkbox">0–9</label><label><input id="underscore" type="checkbox">_</label><label><input id="dot" type="checkbox">.</label></div><label>Başlangıç / ön ek <span>(opsiyonel)</span></label><input id="prefix" maxlength="5" placeholder="ör. er"><label>Manuel liste <span>(opsiyonel)</span></label><textarea id="manual" rows="4" placeholder="aaa&#10;aab&#10;x7a"></textarea><div class="row"><div><label>İstek aralığı</label><select id="delay"><option value="3000">Yavaş — 3 sn</option><option value="5000" selected>Güvenli — 5 sn</option><option value="10000">Çok yavaş — 10 sn</option></select></div><div class="limit"><small>Maksimum</small><b id="limit">100</b></div></div><button id="start" class="primary">🚀 Taramayı Başlat</button><button id="stop" class="secondary" disabled>Durdur</button></section><section class="stats"><div><b id="scanned">0</b><span>Taranan</span></div><div><b id="maybe">0</b><span>Muhtemelen boş</span></div><div><b id="used">0</b><span>Kullanımda</span></div><div><b id="unknown">0</b><span>Belirsiz</span></div></section><section class="card"><div class="head"><h2>Sonuçlar</h2><span id="progress">Hazır</span></div><div class="bar"><i id="bar"></i></div><div id="results" class="results"><div class="empty">Henüz tarama yapılmadı.</div></div><div class="actions"><button id="copy" class="secondary">📋 Boşları Kopyala</button><button id="csv" class="secondary">⬇️ CSV</button></div></section><div class="notice"><b>Önemli:</b> Instagram'ın herkese açık resmi username-availability API'si olmadığı için sonuçlar kesin kayıt garantisi değildir. “Muhtemelen boş” sonuçları Instagram uygulamasında son kez doğrulayın. Araç CAPTCHA, login veya rate-limit aşma girişimi yapmaz.</div></main><script>
+let len=3,running=false,stop=false,results=[];
+const $=id=>document.getElementById(id);
+
+document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  len=+b.dataset.l;
+  updateLimit();
+});
+
+['letters','numbers','underscore','dot','prefix','manual'].forEach(x=>{
+  $(x).addEventListener('input',updateLimit);
+});
+
+function chars(){
+  let s='';
+  if($('letters').checked)s+='abcdefghijklmnopqrstuvwxyz';
+  if($('numbers').checked)s+='0123456789';
+  if($('underscore').checked)s+='_';
+  if($('dot').checked)s+='.';
+  return [...new Set(s)].join('');
+}
+
+function combos(c,n,p=''){
+  let a=[];
+  function go(x){
+    if(a.length>=100)return;
+    if(x.length===n){
+      a.push(x);
+      return;
+    }
+    for(const k of c)go(x+k);
+  }
+  go(p);
+  return a;
+}
+
+function candidates(){
+  let manual=$('manual').value
+    .split(/\\s+/)
+    .map(x=>x.trim().toLowerCase())
+    .filter(Boolean);
+
+  let p=$('prefix').value.trim().toLowerCase();
+  let a=[];
+
+  for(const x of manual){
+    if(x.length===len)a.push(x);
+  }
+
+  if(p&&p.length<=len){
+    a.push(...combos(chars(),len,p));
+  }else if(!p&&!manual.length){
+    a.push(...combos(chars(),len));
+  }
+
+  return [...new Set(a)]
+    .filter(x=>
+      x.length===len &&
+      /^[a-z0-9._]+$/i.test(x) &&
+      !x.startsWith('.') &&
+      !x.endsWith('.') &&
+      !x.includes('..')
+    )
+    .slice(0,100);
+}
+
+function updateLimit(){
+  $('limit').textContent=candidates().length;
+}
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g,c=>({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#039;'
+  }[c]));
+}
+
+function add(r){
+  results.push(r);
+
+  if($('results').querySelector('.empty'))
+    $('results').innerHTML='';
+
+  let t={
+    MAYBE_AVAILABLE:'🟢 Muhtemelen boş',
+    USED:'🔴 Kullanımda',
+    UNKNOWN:'🟡 Belirsiz',
+    ERROR:'⚠️ Hata',
+    INVALID:'⚠️ Geçersiz'
+  }[r.status]||r.status;
+
+  let d=document.createElement('div');
+  d.className='result';
+
+  d.innerHTML=
+    '<div><div class="uname">'+esc(r.username)+'</div>'+
+    '<div class="detail">'+esc(r.detail||'')+'</div></div>'+
+    '<div><span class="status '+r.status.toLowerCase()+'">'+t+
+    '</span><a class="open" target="_blank" href="https://www.instagram.com/'+
+    encodeURIComponent(r.username)+'/">Aç</a></div>';
+
+  $('results').prepend(d);
+}
+
+const sleep=m=>new Promise(r=>setTimeout(r,m));
+
+async function check(u){
+  let r=await fetch('/api/check',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:u})
+  });
+
+  return r.json();
+}
+
+async function start(){
+  if(running)return;
+
+  let manual=$('manual').value
+    .split(/\\s+/)
+    .map(x=>x.trim().toLowerCase())
+    .filter(Boolean);
+
+  let invalid=manual.filter(x=>x.length!==len);
+
+  if(invalid.length){
+    alert(
+      'Manuel listedeki şu kullanıcı adları seçilen uzunlukta değil:\\n\\n'+
+      invalid.join(', ')+
+      '\\n\\nSeçilen uzunluk: '+len
+    );
+    return;
+  }
+
+  let list=candidates();
+
+  if(!list.length){
+    alert('Aday oluşmadı.');
+    return;
+  }
+
+  running=true;
+  stop=false;
+  results=[];
+
+  $('results').innerHTML='';
+  ['scanned','maybe','used','unknown'].forEach(x=>{
+    $(x).textContent=0;
+  });
+
+  $('start').disabled=true;
+  $('stop').disabled=false;
+
+  let delay=+$('delay').value;
+
+  for(let i=0;i<list.length;i++){
+    if(stop)break;
+
+    $('progress').textContent=
+      (i+1)+'/'+list.length+' • '+list[i];
+
+    $('bar').style.width=(i/list.length*100)+'%';
+
+    try{
+      let r=await check(list[i]);
+
+      add(r);
+
+      $('scanned').textContent=
+        +$('scanned').textContent+1;
+
+      if(r.status==='MAYBE_AVAILABLE')
+        $('maybe').textContent=+$('maybe').textContent+1;
+      else if(r.status==='USED')
+        $('used').textContent=+$('used').textContent+1;
+      else
+        $('unknown').textContent=+$('unknown').textContent+1;
+
+    }catch(e){
+
+      add({
+        username:list[i],
+        status:'ERROR',
+        detail:'API bağlantı hatası'
+      });
+
+      $('scanned').textContent=
+        +$('scanned').textContent+1;
+
+      $('unknown').textContent=
+        +$('unknown').textContent+1;
+    }
+
+    if(i<list.length-1)
+      await sleep(delay);
+  }
+
+  $('bar').style.width='100%';
+  $('progress').textContent=
+    stop?'Durduruldu':'Tamamlandı';
+
+  running=false;
+  $('start').disabled=false;
+  $('stop').disabled=true;
+}
+
+$('start').onclick=start;
+
+$('stop').onclick=()=>stop=true;
+
+$('copy').onclick=async()=>{
+  let a=results
+    .filter(x=>x.status==='MAYBE_AVAILABLE')
+    .map(x=>x.username);
+
+  if(!a.length){
+    alert('Muhtemelen boş sonuç yok.');
+    return;
+  }
+
+  await navigator.clipboard.writeText(a.join('\\n'));
+  alert(a.length+' kullanıcı adı kopyalandı.');
+};
+
+$('csv').onclick=()=>{
+  if(!results.length){
+    alert('Sonuç yok.');
+    return;
+  }
+
+  let s='username,status,detail\\n'+
+    results.map(x=>
+      '"'+x.username+'","'+
+      x.status+'","'+
+      (x.detail||'').replaceAll('"','""')+'"'
+    ).join('\\n');
+
+  let b=new Blob(['\\ufeff'+s],{
+    type:'text/csv'
+  });
+
+  let a=document.createElement('a');
+  a.href=URL.createObjectURL(b);
+  a.download='username-results.csv';
+  a.click();
+};
+
+updateLimit();
 </script></body></html>`;
 
-export default {async fetch(request){const url=new URL(request.url);if(url.pathname==='/api/check'&&request.method==='POST'){try{const body=await request.json();const username=String(body?.username||'').trim().toLowerCase();if(!/^[a-z0-9._]{1,30}$/i.test(username)||username.startsWith('.')||username.endsWith('.')||username.includes('..'))return Response.json({username,status:'INVALID',detail:'Geçersiz kullanıcı adı formatı.'},{status:400});const c=new AbortController(),timer=setTimeout(()=>c.abort(),7000);const url='https://www.instagram.com/api/v1/users/web_profile_info/?username='+encodeURIComponent(username);const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1','Accept':'application/json,text/plain,*/*','X-IG-App-ID':'936619743392459','Referer':'https://www.instagram.com/'+encodeURIComponent(username)+'/'},signal:c.signal});clearTimeout(timer);const text=(await r.text()).slice(0,200000);let data;if(r.status===404)data={username,status:'MAYBE_AVAILABLE',detail:'Instagram profil uç noktası 404 döndürdü; isim muhtemelen boş olabilir. Instagramdan doğrulayın.'};else if(r.status===200){try{const j=JSON.parse(text),user=j?.data?.user;if(user?.username)data={username,status:'USED',detail:'Instagram profil verisi döndürdü; kullanıcı adı kullanılıyor.'};else data={username,status:'UNKNOWN',detail:'Instagram yanıtı profil verisi içermedi.'}}catch(e){data={username,status:'UNKNOWN',detail:'Instagram geçerli profil verisi döndürmedi.'}}}else if([400,401,403,429].includes(r.status)||/challenge|checkpoint|login_required|rate.?limit/i.test(text))data={username,status:'UNKNOWN',detail:'Instagram bu isteği sınırladı veya doğrulama istedi.'};else data={username,status:'UNKNOWN',detail:'Instagram yanıtı güvenilir boş/dolu ayrımı için yeterli değil.'};return Response.json(data)}catch(e){return Response.json({username:'',status:'ERROR',detail:e?.name==='AbortError'?'Zaman aşımı.':'Bağlantı hatası.'})}}return new Response(HTML,{headers:{'content-type':'text/html;charset=UTF-8'}})}};
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/api/check" && request.method === "POST") {
+      let username = "";
+
+      try {
+        const body = await request.json();
+
+        username = String(body?.username || "")
+          .trim()
+          .toLowerCase();
+
+        if (
+          !/^[a-z0-9._]{1,30}$/i.test(username) ||
+          username.startsWith(".") ||
+          username.endsWith(".") ||
+          username.includes("..")
+        ) {
+          return Response.json({
+            username,
+            status: "INVALID",
+            detail: "Geçersiz kullanıcı adı formatı."
+          });
+        }
+
+        const headers = {
+          "User-Agent":
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) " +
+            "Version/17.0 Mobile/15E148 Safari/604.1",
+
+          "Accept":
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+
+          "Accept-Language":
+            "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7"
+        };
+
+        /*
+         * 1. Normal Instagram profil sayfası
+         */
+        const controller = new AbortController();
+
+        const timer=setTimeout(
+          ()=>controller.abort(),
+          7000
+        );
+
+        const response=await fetch(
+          "https://www.instagram.com/"+
+          encodeURIComponent(username)+"/",
+          {
+            method:"GET",
+            redirect:"manual",
+            headers,
+            signal:controller.signal
+          }
+        );
+
+        clearTimeout(timer);
+
+        const location=
+          response.headers.get("location")||"";
+
+        const text=
+          (await response.text()).slice(0,250000);
+
+        /*
+         * 404 = profil bulunamadı
+         */
+        if(response.status===404){
+          return Response.json({
+            username,
+            status:"MAYBE_AVAILABLE",
+            detail:
+              "Instagram 404 döndürdü; kullanıcı adı muhtemelen boş olabilir. Instagram uygulamasında doğrulayın."
+          });
+        }
+
+        /*
+         * Instagram bizi login/challenge/rate-limit
+         * sayfasına yönlendiriyorsa ikinci kontrolü dene.
+         */
+        if(
+          [401,403,429].includes(response.status)||
+          /challenge|checkpoint|login_required|rate.?limit/i.test(text)||
+          /\/accounts\/login/i.test(location)
+        ){
+          return await fallbackProfileInfo(
+            username,
+            headers
+          );
+        }
+
+        /*
+         * HTML içerisinde gerçek profil kanıtı ara.
+         */
+        const escaped=
+          username.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            "\\$&"
+          );
+
+        const profileEvidence=
+          new RegExp(
+            '"username"\\s*:\\s*"'+
+            escaped+
+            '"',
+            "i"
+          ).test(text)
+
+          ||
+
+          new RegExp(
+            '"alternateName"\\s*:\\s*"@?'+
+            escaped+
+            '"',
+            "i"
+          ).test(text)
+
+          ||
+
+          new RegExp(
+            'instagram\\.com/'+
+            escaped+
+            '/?',
+            "i"
+          ).test(text);
+
+        /*
+         * 200 + profil kanıtı = kullanımda
+         */
+        if(
+          response.status===200 &&
+          profileEvidence
+        ){
+          return Response.json({
+            username,
+            status:"USED",
+            detail:
+              "Instagram profil bilgisi bulundu. Kullanıcı adı kullanımda."
+          });
+        }
+
+        /*
+         * Profil sayfası yeterli bilgi vermediyse
+         * ikinci resmi web yanıtını deniyoruz.
+         */
+        return await fallbackProfileInfo(
+          username,
+          headers
+        );
+
+      }catch(error){
+
+        return Response.json({
+          username,
+          status:"ERROR",
+          detail:
+            error?.name==="AbortError"
+              ? "Instagram isteği zaman aşımına uğradı."
+              : "Instagram bağlantı hatası."
+        });
+      }
+    }
+
+    return new Response(
+      HTML,
+      {
+        headers:{
+          "content-type":
+            "text/html;charset=UTF-8"
+        }
+      }
+    );
+  }
+};
+
+
+/*
+ * İkinci kontrol:
+ * Instagram web_profile_info
+ */
+async function fallbackProfileInfo(
+  username,
+  headers
+){
+  try{
+
+    const controller=new AbortController();
+
+    const timer=setTimeout(
+      ()=>controller.abort(),
+      7000
+    );
+
+    const response=await fetch(
+      "https://www.instagram.com/api/v1/users/web_profile_info/?username="+
+      encodeURIComponent(username),
+      {
+        method:"GET",
+        redirect:"manual",
+
+        headers:{
+          ...headers,
+
+          "Accept":
+            "application/json,text/plain,*/*",
+
+          "X-IG-App-ID":
+            "936619743392459",
+
+          "Referer":
+            "https://www.instagram.com/"+
+            encodeURIComponent(username)+
+            "/"
+        },
+
+        signal:controller.signal
+      }
+    );
+
+    clearTimeout(timer);
+
+    const location=
+      response.headers.get("location")||"";
+
+    const text=
+      (await response.text()).slice(0,200000);
+
+    /*
+     * Profil bulunamadı
+     */
+    if(response.status===404){
+
+      return Response.json({
+        username,
+        status:"MAYBE_AVAILABLE",
+        detail:
+          "Instagram profil bilgisi bulunamadı; kullanıcı adı muhtemelen boş olabilir. Instagram uygulamasında doğrulayın."
+      });
+    }
+
+    /*
+     * Instagram sınırladı
+     */
+    if(
+      [401,403,429].includes(response.status)||
+      /challenge|checkpoint|login_required|rate.?limit/i.test(text)||
+      /\/accounts\/login/i.test(location)
+    ){
+
+      return Response.json({
+        username,
+        status:"UNKNOWN",
+        detail:
+          "Instagram bu isteği sınırladı veya doğrulama istedi. Bu durumda boş/dolu sonucu güvenilir biçimde belirleyemiyoruz."
+      });
+    }
+
+    /*
+     * JSON profil verisi bulundu
+     */
+    if(response.status===200){
+
+      try{
+
+        const data=JSON.parse(text);
+
+        const user=
+          data?.data?.user||
+          data?.user||
+          null;
+
+        if(
+          user &&
+          (
+            user.username||
+            user.pk||
+            user.id
+          )
+        ){
+
+          return Response.json({
+            username,
+            status:"USED",
+            detail:
+              "Instagram profil bilgisi bulundu. Kullanıcı adı kullanımda."
+          });
+        }
+
+      }catch(_){}
+    }
+
+    /*
+     * Güvenilir sonuç alınamadı.
+     */
+    return Response.json({
+      username,
+      status:"UNKNOWN",
+      detail:
+        "Instagram yanıtı güvenilir boş/dolu ayrımı için yeterli değil."
+    });
+
+  }catch(error){
+
+    return Response.json({
+      username,
+      status:"ERROR",
+      detail:
+        error?.name==="AbortError"
+          ? "Instagram isteği zaman aşımına uğradı."
+          : "Instagram bağlantı hatası."
+    });
+  }
+}
